@@ -42,6 +42,11 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Seed: обогащаем базу данных данными о товарах.
+	if err := utils.SeedMerchData(context.Background(), pool, logrus.StandardLogger()); err != nil {
+		logrus.Fatalf("Error seeding merchandise data: %v", err)
+	}
+
 	// Инициализируем sqlc-клиент (сгенерированный код).
 	queries := db.New(pool)
 
@@ -59,11 +64,17 @@ func main() {
 	sendCoinHandler := handlers.NewSendCoinHandler(sendCoinService)
 	secureSendCoinHandler := middleware.JWTMiddleware([]byte(cfg.JWTSecret))(http.HandlerFunc(sendCoinHandler.HandleSendCoin))
 
+	buyRepo := repository.NewBuyRepository(pool, queries, logger)
+	buyService := service.NewBuyService(buyRepo, logger)
+	buyHandler := handlers.NewBuyHandler(buyService)
+	secureBuyHandler := middleware.JWTMiddleware([]byte(cfg.JWTSecret))(http.HandlerFunc(buyHandler.HandleBuy))
+
 	// Маршруты.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth", authHandler.HandleAuth)
 	mux.Handle("/api/info", secureInfoHandler)
 	mux.Handle("/api/send-coin", secureSendCoinHandler)
+	mux.Handle("/api/buy/", secureBuyHandler)
 
 	logrus.Info("Server started on PORT: ", cfg.ServerPort)
 	if err := http.ListenAndServe(":"+cfg.ServerPort, mux); err != nil {
