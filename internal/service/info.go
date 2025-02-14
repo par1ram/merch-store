@@ -43,6 +43,7 @@ type infoService struct {
 }
 
 func NewInfoService(repo repository.InfoRepository, logger utils.Logger) InfoService {
+	logger.WithFields(utils.LogFields{"component": "info_service"}).Info("InfoService initialized")
 	return &infoService{
 		repo:   repo,
 		logger: logger.WithFields(utils.LogFields{"component": "info_service"}),

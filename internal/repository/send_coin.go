@@ -24,6 +24,7 @@ type sendCoinRepository struct {
 }
 
 func NewSendCoinRepository(pool *pgxpool.Pool, queries *db.Queries, logger utils.Logger) SendCoinRepository {
+	logger.WithFields(utils.LogFields{"component": "send_coin_repository"}).Info("SendCoinRepository initialized")
 	return &sendCoinRepository{
 		pool:    pool,
 		queries: queries,

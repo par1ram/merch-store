@@ -50,8 +50,8 @@ func main() {
 	// Инициализируем sqlc-клиент (сгенерированный код).
 	queries := db.New(pool)
 
-	userRepo := repository.NewPostgresUserRepository(queries)
-	authService := service.NewAuthService(userRepo, []byte(cfg.JWTSecret))
+	userRepo := repository.NewPostgresUserRepository(queries, logger)
+	authService := service.NewAuthService(userRepo, []byte(cfg.JWTSecret), logger)
 	authHandler := handlers.NewAuthHandler(authService)
 
 	infoRepo := repository.NewInfoRepository(queries, logger)

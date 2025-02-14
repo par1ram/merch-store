@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/par1ram/merch-store/internal/db"
 	"github.com/par1ram/merch-store/internal/utils"
 )
@@ -19,12 +18,13 @@ type BuyRepository interface {
 }
 
 type buyRepository struct {
-	pool    *pgxpool.Pool
+	// Изменяем тип поля pool на наш интерфейс:
+	pool    PoolIface
 	queries *db.Queries
 	logger  utils.Logger
 }
 
-func NewBuyRepository(pool *pgxpool.Pool, queries *db.Queries, logger utils.Logger) BuyRepository {
+func NewBuyRepository(pool PoolIface, queries *db.Queries, logger utils.Logger) BuyRepository {
 	logger.WithFields(utils.LogFields{"component": "buy_repository"}).Info("BuyRepository initialized")
 	return &buyRepository{
 		pool:    pool,

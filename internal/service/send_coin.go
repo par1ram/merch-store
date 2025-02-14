@@ -29,7 +29,7 @@ type sendCoinService struct {
 func NewSendCoinService(repo repository.SendCoinRepository, logger utils.Logger) SendCoinService {
 	logger.WithFields(utils.LogFields{
 		"component": "send_coin_service",
-	}).Info("Service initialized")
+	}).Info("SendCoinService initialized")
 
 	return &sendCoinService{
 		repo:   repo,

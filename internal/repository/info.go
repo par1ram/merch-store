@@ -35,7 +35,9 @@ type infoRepository struct {
 	logger  utils.Logger
 }
 
+// NewInfoRepository инициализирует репозиторий с логированием, добавляя базовые поля.
 func NewInfoRepository(queries *db.Queries, logger utils.Logger) InfoRepository {
+	logger.WithFields(utils.LogFields{"component": "info_repository"}).Info("InfoRepository initialized")
 	return &infoRepository{
 		Queries: queries,
 		logger: logger.WithFields(utils.LogFields{
@@ -44,6 +46,7 @@ func NewInfoRepository(queries *db.Queries, logger utils.Logger) InfoRepository 
 	}
 }
 
+// logOperation добавляет в лог информацию об операции и, если есть, user_id из контекста.
 func (r *infoRepository) logOperation(ctx context.Context, operation string) utils.Logger {
 	return r.logger.WithFields(utils.LogFields{
 		"operation": operation,
@@ -53,25 +56,25 @@ func (r *infoRepository) logOperation(ctx context.Context, operation string) uti
 
 func (r *infoRepository) GetCoins(ctx context.Context, userID int64) (int, error) {
 	log := r.logOperation(ctx, "get_coins")
-	log.Debug("Starting coins retrieval")
+	log.Debugf("Starting coins retrieval")
 
 	emp, err := r.Queries.GetEmployeeByID(ctx, int32(userID))
 	if err != nil {
-		log.WithFields(utils.LogFields{"error": err}).Error("Failed to get employee coins")
+		log.WithFields(utils.LogFields{"error": err}).Errorf("Failed to get employee coins")
 		return 0, err
 	}
 
-	log.WithFields(utils.LogFields{"coins": emp.Coins}).Debug("Coins retrieved successfully")
+	log.WithFields(utils.LogFields{"coins": emp.Coins}).Debugf("Coins retrieved successfully")
 	return int(emp.Coins), nil
 }
 
 func (r *infoRepository) GetInventory(ctx context.Context, userID int64) ([]InventoryItem, error) {
 	log := r.logOperation(ctx, "get_inventory")
-	log.Debug("Starting inventory retrieval")
+	log.Debugf("Starting inventory retrieval")
 
 	items, err := r.Queries.GetInventoryByEmployeeID(ctx, int32(userID))
 	if err != nil {
-		log.WithFields(utils.LogFields{"error": err}).Error("Failed to get inventory")
+		log.WithFields(utils.LogFields{"error": err}).Errorf("Failed to get inventory")
 		return nil, err
 	}
 
@@ -83,20 +86,20 @@ func (r *infoRepository) GetInventory(ctx context.Context, userID int64) ([]Inve
 		})
 	}
 
-	log.WithFields(utils.LogFields{"item_count": len(inventory)}).Debug("Inventory retrieved")
+	log.WithFields(utils.LogFields{"item_count": len(inventory)}).Debugf("Inventory retrieved")
 	return inventory, nil
 }
 
 func (r *infoRepository) GetReceivedTransfers(ctx context.Context, userID int64) ([]ReceivedTransaction, error) {
 	log := r.logOperation(ctx, "get_received_transfers")
-	log.Debug("Starting received transfers retrieval")
+	log.Debugf("Starting received transfers retrieval")
 
 	transfers, err := r.Queries.GetReceivedTransfers(ctx, pgtype.Int4{
 		Int32: int32(userID),
 		Valid: true,
 	})
 	if err != nil {
-		log.WithFields(utils.LogFields{"error": err}).Error("Failed to get received transfers")
+		log.WithFields(utils.LogFields{"error": err}).Errorf("Failed to get received transfers")
 		return nil, err
 	}
 
@@ -108,17 +111,17 @@ func (r *infoRepository) GetReceivedTransfers(ctx context.Context, userID int64)
 		})
 	}
 
-	log.WithFields(utils.LogFields{"transfer_count": len(recTrans)}).Debug("Received transfers retrieved")
+	log.WithFields(utils.LogFields{"transfer_count": len(recTrans)}).Debugf("Received transfers retrieved")
 	return recTrans, nil
 }
 
 func (r *infoRepository) GetSentTransfers(ctx context.Context, userID int64) ([]SentTransaction, error) {
 	log := r.logOperation(ctx, "get_sent_transfers")
-	log.Debug("Starting sent transfers retrieval")
+	log.Debugf("Starting sent transfers retrieval")
 
 	transfers, err := r.Queries.GetSentTransfers(ctx, int32(userID))
 	if err != nil {
-		log.WithFields(utils.LogFields{"error": err}).Error("Failed to get sent transfers")
+		log.WithFields(utils.LogFields{"error": err}).Errorf("Failed to get sent transfers")
 		return nil, err
 	}
 
@@ -130,6 +133,6 @@ func (r *infoRepository) GetSentTransfers(ctx context.Context, userID int64) ([]
 		})
 	}
 
-	log.WithFields(utils.LogFields{"transfer_count": len(sentTrans)}).Debug("Sent transfers retrieved")
+	log.WithFields(utils.LogFields{"transfer_count": len(sentTrans)}).Debugf("Sent transfers retrieved")
 	return sentTrans, nil
 }
