@@ -1,4 +1,3 @@
-// file: repository/get_merch_test.go
 package repository_test
 
 import (
@@ -27,7 +26,7 @@ func TestBuyRepository_GetMerch_Success(t *testing.T) {
 
 	// Настраиваем ожидаемые строки, которые вернет запрос GetMerchByName.
 	rows := pgxmock.NewRows([]string{"id", "name", "price"}).
-		AddRow(int32(1), "T-Shirt", int32(100)) // Используем int32 вместо int
+		AddRow(int32(1), "T-Shirt", int32(100))
 
 	// Настраиваем ожидание запроса.
 	mockPool.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, price FROM merch WHERE name = $1`)).

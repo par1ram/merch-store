@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/par1ram/merch-store/internal/db"
 	"github.com/par1ram/merch-store/internal/utils"
 )
@@ -18,12 +17,12 @@ type SendCoinRepository interface {
 }
 
 type sendCoinRepository struct {
-	pool    *pgxpool.Pool
+	pool    PoolIface
 	queries *db.Queries
 	logger  utils.Logger
 }
 
-func NewSendCoinRepository(pool *pgxpool.Pool, queries *db.Queries, logger utils.Logger) SendCoinRepository {
+func NewSendCoinRepository(pool PoolIface, queries *db.Queries, logger utils.Logger) SendCoinRepository {
 	logger.WithFields(utils.LogFields{"component": "send_coin_repository"}).Info("SendCoinRepository initialized")
 	return &sendCoinRepository{
 		pool:    pool,

@@ -1,4 +1,3 @@
-// buy_service_test.go
 package service_test
 
 import (
@@ -16,54 +15,46 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// TestPurchase_Success проверяет успешную покупку.
 func TestPurchase_Success(t *testing.T) {
-	// Создаем контекст с валидными данными пользователя.
+	// 1) Создаём контекст с user_id
 	claims := jwt.MapClaims{"user_id": 123.0}
 	ctx := context.WithValue(context.Background(), middleware.UserCtxKey, claims)
 
-	// Создаем мок репозитория.
+	// 2) Создаём мок
 	repoMock := new(repository.MockBuyRepository)
 
-	// Тестовые данные товара.
-	merchItem := "T-Shirt"
+	// 3) Настраиваем «вне транзакции»
 	merchData := db.Merch{
-		ID:    1,
-		Name:  merchItem,
-		Price: 100,
+		ID:    int32(1),
+		Name:  "T-Shirt",
+		Price: int32(100),
 	}
-
-	// Ожидаем вызов GetMerch и возвращаем информацию о товаре.
-	repoMock.On("GetMerch", ctx, merchItem).Return(merchData, nil).Once()
-
-	// Ожидаем вызов GetBalance и возвращаем баланс, достаточный для покупки.
+	repoMock.On("GetMerch", ctx, "T-Shirt").Return(merchData, nil).Once()
 	repoMock.On("GetBalance", ctx, int32(123)).Return(int32(200), nil).Once()
 
-	// В ExecTx внутри транзакции должны вызываться DeductCoins, UpsertInventory и CreatePurchaseTransaction.
+	// 4) Настраиваем ExecTx (не делаем Run(func(...){...}) — достаточно Return(nil)),
+	//    потому что в MockBuyRepository.ExecTx уже есть “return fn(m)”.
 	repoMock.On("ExecTx", ctx, mock.AnythingOfType("func(repository.BuyRepository) error")).
-		Run(func(args mock.Arguments) {
-			// Извлекаем функцию транзакции.
-			txFunc := args.Get(1).(func(repository.BuyRepository) error)
-
-			// Устанавливаем ожидания для методов, вызываемых внутри транзакции.
-			repoMock.On("DeductCoins", ctx, int32(123), merchData.Price).Return(int64(1), nil).Once()
-			repoMock.On("UpsertInventory", ctx, mock.Anything).Return(nil).Once()
-			repoMock.On("CreatePurchaseTransaction", ctx, mock.Anything).Return(nil).Once()
-
-			// Вызываем транзакционную функцию.
-			err := txFunc(repoMock)
-			assert.NoError(t, err)
-		}).
 		Return(nil).Once()
 
-	// Используем тестовый логгер (реализация может быть простенькой, см. пример ниже).
+	// 5) Настраиваем методы, которые будут вызваны внутри транзакции (на том же repoMock!):
+	repoMock.On("DeductCoins", mock.Anything, int32(123), int32(100)).
+		Return(int64(1), nil).
+		Once()
+	repoMock.On("UpsertInventory", mock.Anything, mock.Anything).
+		Return(nil).
+		Once()
+	repoMock.On("CreatePurchaseTransaction", mock.Anything, mock.Anything).
+		Return(nil).
+		Once()
+
+	// 6) Вызываем сервис
 	logger := utils.NewLogger()
 	buySvc := service.NewBuyService(repoMock, logger)
-
-	// Вызываем метод Purchase.
-	err := buySvc.Purchase(ctx, merchItem)
+	err := buySvc.Purchase(ctx, "T-Shirt")
 	assert.NoError(t, err)
 
+	// 7) Проверяем ожидания
 	repoMock.AssertExpectations(t)
 }
 
@@ -127,7 +118,6 @@ func TestPurchase_GetMerchError(t *testing.T) {
 	repoMock.AssertExpectations(t)
 }
 
-// TestPurchase_DeductCoinsFailure проверяет ошибку в транзакционной части (например, не удалось списать монеты).
 func TestPurchase_DeductCoinsFailure(t *testing.T) {
 	claims := jwt.MapClaims{"user_id": 123.0}
 	ctx := context.WithValue(context.Background(), middleware.UserCtxKey, claims)
@@ -135,26 +125,27 @@ func TestPurchase_DeductCoinsFailure(t *testing.T) {
 	repoMock := new(repository.MockBuyRepository)
 	merchItem := "T-Shirt"
 	merchData := db.Merch{
-		ID:    1,
+		ID:    int32(1),
 		Name:  merchItem,
-		Price: 100,
+		Price: int32(100),
 	}
+
+	// "До транзакции"
 	repoMock.On("GetMerch", ctx, merchItem).Return(merchData, nil).Once()
 	repoMock.On("GetBalance", ctx, int32(123)).Return(int32(200), nil).Once()
 
-	deductErr := errors.New("failed to deduct coins")
+	// ExecTx
 	repoMock.On("ExecTx", ctx, mock.AnythingOfType("func(repository.BuyRepository) error")).
-		Run(func(args mock.Arguments) {
-			txFunc := args.Get(1).(func(repository.BuyRepository) error)
-			repoMock.On("DeductCoins", ctx, int32(123), merchData.Price).Return(int64(0), deductErr).Once()
-			err := txFunc(repoMock)
-			assert.Equal(t, deductErr, err)
-		}).
 		Return(nil).Once()
 
-	logger := utils.NewLogger()
-	buySvc := service.NewBuyService(repoMock, logger)
+	// "Внутри транзакции"
+	// Возвращаем (int64(0), deductErr)
+	deductErr := errors.New("failed to deduct coins")
+	repoMock.On("DeductCoins", mock.Anything, int32(123), int32(100)).
+		Return(int64(0), deductErr).
+		Once()
 
+	buySvc := service.NewBuyService(repoMock, utils.NewLogger())
 	err := buySvc.Purchase(ctx, merchItem)
 	assert.Error(t, err)
 	assert.Equal(t, deductErr, err)
