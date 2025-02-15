@@ -10,14 +10,22 @@ import (
 
 	"github.com/par1ram/merch-store/internal/handlers"
 	"github.com/par1ram/merch-store/internal/middleware"
-	"github.com/par1ram/merch-store/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
+type MockBuyService struct {
+	mock.Mock
+}
+
+func (m *MockBuyService) Purchase(ctx context.Context, item string) error {
+	args := m.Called(ctx, item)
+	return args.Error(0)
+}
+
 func TestBuyHandler_HandleBuy_Success(t *testing.T) {
 	// Создаем MockBuyService
-	mockBuyService := new(service.MockBuyService)
+	mockBuyService := new(MockBuyService)
 	mockBuyService.On("Purchase", mock.Anything, "testItem").Return(nil)
 
 	// Создаем BuyHandler
@@ -45,7 +53,7 @@ func TestBuyHandler_HandleBuy_Success(t *testing.T) {
 
 func TestBuyHandler_HandleBuy_Error(t *testing.T) {
 	// Создаем MockBuyService, который возвращает ошибку
-	mockBuyService := new(service.MockBuyService)
+	mockBuyService := new(MockBuyService)
 	mockBuyService.On("Purchase", mock.Anything, "testItem").Return(errors.New("some error"))
 
 	// Создаем BuyHandler

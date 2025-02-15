@@ -16,9 +16,18 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type MockInfoService struct {
+	mock.Mock
+}
+
+func (m *MockInfoService) GetInfo(ctx context.Context, userID int64) (service.InfoResponse, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(service.InfoResponse), args.Error(1)
+}
+
 func TestInfoHandler_HandleInfo_Success(t *testing.T) {
 	// Создаем мок-сервис InfoService.
-	mockInfoService := new(service.MockInfoService)
+	mockInfoService := new(MockInfoService)
 
 	// Ожидаемые данные, которые должен вернуть сервис.
 	expectedInfo := service.InfoResponse{
@@ -74,7 +83,7 @@ func TestInfoHandler_HandleInfo_Success(t *testing.T) {
 
 func TestInfoHandler_HandleInfo_Error(t *testing.T) {
 	// Моковый сервис, возвращающий ошибку.
-	mockInfoService := new(service.MockInfoService)
+	mockInfoService := new(MockInfoService)
 	mockInfoService.
 		On("GetInfo", mock.Anything, int64(123)).
 		Return(service.InfoResponse{}, errors.New("service error")).
@@ -104,7 +113,7 @@ func TestInfoHandler_HandleInfo_Error(t *testing.T) {
 
 func TestInfoHandler_HandleInfo_Unauthorized(t *testing.T) {
 	// Если в контексте отсутствует userID, обработчик должен вернуть 401.
-	mockInfoService := new(service.MockInfoService)
+	mockInfoService := new(MockInfoService)
 	// В этом сценарии метод GetInfo не должен вызываться.
 	infoHandler := handlers.NewInfoHandler(mockInfoService)
 

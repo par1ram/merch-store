@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/par1ram/merch-store/internal/config"
 	"github.com/par1ram/merch-store/internal/db"
@@ -12,10 +16,10 @@ import (
 	"github.com/par1ram/merch-store/internal/repository"
 	"github.com/par1ram/merch-store/internal/service"
 	"github.com/par1ram/merch-store/internal/utils"
-	"github.com/pressly/goose"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,7 +27,7 @@ func main() {
 	logger := utils.NewLogger()
 	cfg := config.LoadConfig()
 
-	// Соединение для миграций
+	// Соединение для миграций:
 	sqlDB, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		logrus.Fatalf("Failed to open database: %v", err)
@@ -50,6 +54,7 @@ func main() {
 	// Инициализируем sqlc-клиент (сгенерированный код).
 	queries := db.New(pool)
 
+	// Создание репозиториев и сервисов
 	userRepo := repository.NewPostgresUserRepository(queries, logger)
 	authService := service.NewAuthService(userRepo, []byte(cfg.JWTSecret), logger)
 	authHandler := handlers.NewAuthHandler(authService)
@@ -69,15 +74,44 @@ func main() {
 	buyHandler := handlers.NewBuyHandler(buyService)
 	secureBuyHandler := middleware.JWTMiddleware([]byte(cfg.JWTSecret))(http.HandlerFunc(buyHandler.HandleBuy))
 
-	// Маршруты.
+	// Настраиваем маршруты в mux.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth", authHandler.HandleAuth)
 	mux.Handle("/api/info", secureInfoHandler)
 	mux.Handle("/api/send-coin", secureSendCoinHandler)
 	mux.Handle("/api/buy/", secureBuyHandler)
 
-	logrus.Info("Server started on PORT: ", cfg.ServerPort)
-	if err := http.ListenAndServe(":"+cfg.ServerPort, mux); err != nil {
-		logrus.Fatalf("failed to start server: %v", err)
+	// Создаем http.Server
+	server := &http.Server{
+		Addr:    ":" + cfg.ServerPort, // например, ":8080"
+		Handler: mux,
 	}
+
+	// Логируем запуск
+	logrus.Infof("Server started on PORT: %s", cfg.ServerPort)
+
+	// Канал для сигналов
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Запускаем сервер в горутине
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logrus.Fatalf("ListenAndServe error: %v", err)
+		}
+	}()
+
+	// Ждём сигнала
+	<-stop
+	logrus.Info("Shutting down gracefully...")
+
+	// Контекст с таймаутом на завершение активных соединений
+	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctxShutDown); err != nil {
+		logrus.Errorf("Server Shutdown Failed:%+v", err)
+	}
+
+	logrus.Info("Server exited properly")
 }

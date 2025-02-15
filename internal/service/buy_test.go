@@ -15,13 +15,50 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type MockBuyRepository struct {
+	mock.Mock
+}
+
+func (m *MockBuyRepository) ExecTx(ctx context.Context, fn func(repository.BuyRepository) error) error {
+	args := m.Called(ctx, fn)
+	if err := args.Error(0); err != nil {
+		return err
+	}
+	return fn(m)
+}
+
+func (m *MockBuyRepository) GetMerch(ctx context.Context, merchName string) (db.Merch, error) {
+	args := m.Called(ctx, merchName)
+	return args.Get(0).(db.Merch), args.Error(1)
+}
+
+func (m *MockBuyRepository) GetBalance(ctx context.Context, userID int32) (int32, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(int32), args.Error(1)
+}
+
+func (m *MockBuyRepository) DeductCoins(ctx context.Context, userID, amount int32) (int64, error) {
+	args := m.Called(ctx, userID, amount)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockBuyRepository) UpsertInventory(ctx context.Context, params db.UpsertInventoryParams) error {
+	args := m.Called(ctx, params)
+	return args.Error(0)
+}
+
+func (m *MockBuyRepository) CreatePurchaseTransaction(ctx context.Context, params db.CreateCoinTransactionPurchaseParams) error {
+	args := m.Called(ctx, params)
+	return args.Error(0)
+}
+
 func TestPurchase_Success(t *testing.T) {
 	// 1) Создаём контекст с user_id
 	claims := jwt.MapClaims{"user_id": 123.0}
 	ctx := context.WithValue(context.Background(), middleware.UserCtxKey, claims)
 
 	// 2) Создаём мок
-	repoMock := new(repository.MockBuyRepository)
+	repoMock := new(MockBuyRepository)
 
 	// 3) Настраиваем «вне транзакции»
 	merchData := db.Merch{
@@ -63,7 +100,7 @@ func TestPurchase_UserNotAuthenticated(t *testing.T) {
 	// Контекст без данных пользователя.
 	ctx := context.Background()
 
-	repoMock := new(repository.MockBuyRepository)
+	repoMock := new(MockBuyRepository)
 	logger := utils.NewLogger()
 	buySvc := service.NewBuyService(repoMock, logger)
 
@@ -77,7 +114,7 @@ func TestPurchase_InsufficientFunds(t *testing.T) {
 	claims := jwt.MapClaims{"user_id": 123.0}
 	ctx := context.WithValue(context.Background(), middleware.UserCtxKey, claims)
 
-	repoMock := new(repository.MockBuyRepository)
+	repoMock := new(MockBuyRepository)
 	merchItem := "T-Shirt"
 	merchData := db.Merch{
 		ID:    1,
@@ -103,7 +140,7 @@ func TestPurchase_GetMerchError(t *testing.T) {
 	claims := jwt.MapClaims{"user_id": 123.0}
 	ctx := context.WithValue(context.Background(), middleware.UserCtxKey, claims)
 
-	repoMock := new(repository.MockBuyRepository)
+	repoMock := new(MockBuyRepository)
 	merchItem := "NonExistentItem"
 	getMerchErr := errors.New("merch not found")
 	repoMock.On("GetMerch", ctx, merchItem).Return(db.Merch{}, getMerchErr).Once()
@@ -122,7 +159,7 @@ func TestPurchase_DeductCoinsFailure(t *testing.T) {
 	claims := jwt.MapClaims{"user_id": 123.0}
 	ctx := context.WithValue(context.Background(), middleware.UserCtxKey, claims)
 
-	repoMock := new(repository.MockBuyRepository)
+	repoMock := new(MockBuyRepository)
 	merchItem := "T-Shirt"
 	merchData := db.Merch{
 		ID:    int32(1),

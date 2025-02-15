@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,6 +14,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+type MockSendCoinService struct {
+	mock.Mock
+}
+
+func (m *MockSendCoinService) SendCoin(ctx context.Context, toUser string, amount int32) error {
+	args := m.Called(ctx, toUser, amount)
+	return args.Error(0)
+}
 
 func TestSendCoinHandler_HandleSendCoin_Success(t *testing.T) {
 	// Формируем корректный запрос.
@@ -28,7 +38,7 @@ func TestSendCoinHandler_HandleSendCoin_Success(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Настраиваем моковый сервис: при вызове SendCoin с аргументами ("Bob", 50) возвращаем nil.
-	mockService := new(service.MockSendCoinService)
+	mockService := new(MockSendCoinService)
 	mockService.
 		On("SendCoin", mock.Anything, "Bob", int32(50)).
 		Return(nil).
@@ -56,7 +66,7 @@ func TestSendCoinHandler_HandleSendCoin_InvalidJSON(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	mockService := new(service.MockSendCoinService)
+	mockService := new(MockSendCoinService)
 	// В этом сценарии метод SendCoin не должен вызываться.
 	handler := handlers.NewSendCoinHandler(mockService)
 	handler.HandleSendCoin(rr, req)
@@ -82,7 +92,7 @@ func TestSendCoinHandler_HandleSendCoin_MissingToUser(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	mockService := new(service.MockSendCoinService)
+	mockService := new(MockSendCoinService)
 	handler := handlers.NewSendCoinHandler(mockService)
 	handler.HandleSendCoin(rr, req)
 
@@ -106,7 +116,7 @@ func TestSendCoinHandler_HandleSendCoin_NonPositiveAmount(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	mockService := new(service.MockSendCoinService)
+	mockService := new(MockSendCoinService)
 	handler := handlers.NewSendCoinHandler(mockService)
 	handler.HandleSendCoin(rr, req)
 
@@ -131,7 +141,7 @@ func TestSendCoinHandler_HandleSendCoin_BusinessValidationError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Настраиваем моковый сервис так, чтобы он возвращал бизнес-валидационную ошибку.
-	mockService := new(service.MockSendCoinService)
+	mockService := new(MockSendCoinService)
 	mockService.
 		On("SendCoin", mock.Anything, "Bob", int32(50)).
 		Return(service.ErrBusinessValidation).
@@ -164,7 +174,7 @@ func TestSendCoinHandler_HandleSendCoin_InternalError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Настраиваем моковый сервис так, чтобы он возвращал общую ошибку.
-	mockService := new(service.MockSendCoinService)
+	mockService := new(MockSendCoinService)
 	mockService.
 		On("SendCoin", mock.Anything, "Bob", int32(50)).
 		Return(errors.New("some internal error")).
