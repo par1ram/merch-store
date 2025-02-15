@@ -74,7 +74,7 @@ func main() {
 	buyHandler := handlers.NewBuyHandler(buyService)
 	secureBuyHandler := middleware.JWTMiddleware([]byte(cfg.JWTSecret))(http.HandlerFunc(buyHandler.HandleBuy))
 
-	// Настраиваем маршруты в mux.
+	// Маршруты
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth", authHandler.HandleAuth)
 	mux.Handle("/api/info", secureInfoHandler)
@@ -83,11 +83,10 @@ func main() {
 
 	// Создаем http.Server
 	server := &http.Server{
-		Addr:    ":" + cfg.ServerPort, // например, ":8080"
+		Addr:    ":" + cfg.ServerPort,
 		Handler: mux,
 	}
 
-	// Логируем запуск
 	logrus.Infof("Server started on PORT: %s", cfg.ServerPort)
 
 	// Канал для сигналов
